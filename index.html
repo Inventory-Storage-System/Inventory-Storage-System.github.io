@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shelf Tracker</title>
+<script>
+/* anti-flash: apply saved theme before paint */
+try{var t=localStorage.getItem('shelftracker_theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);
+else if(matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.setAttribute('data-theme','dark');}catch(e){}
+</script>
+<style>
+/* ---------- Material 3 Expressive-ish tokens ---------- */
+:root{
+  --bg:#f5f4fb; --surf:#ffffff; --surf2:#eeecf7; --surf3:#e5e2f3;
+  --ink:#1b1b28; --ink2:#484658; --line:#dcd8ee;
+  --primary:#5a54d6; --primary-ink:#ffffff; --primary-cont:#e5e2ff; --primary-cont-ink:#211a52;
+  --inv:#2563eb; --inv-bg:#e5efff; --inv-ink:#123a86;
+  --demo:#e07d00; --demo-bg:#fdf0dc; --demo-ink:#7a4700;
+  --ok:#12855b; --bad:#c62f42; --warn:#b8860b;
+  --shadow:0 2px 6px rgba(30,25,70,.08),0 8px 24px rgba(30,25,70,.06);
+  --radius:22px; --radius-sm:14px;
+}
+:root[data-theme="dark"]{
+  --bg:#131320; --surf:#1e1e2f; --surf2:#26263a; --surf3:#303048;
+  --ink:#eceaf6; --ink2:#a9a6c2; --line:#37374f;
+  --primary:#b7b1ff; --primary-ink:#221b57; --primary-cont:#3a3480; --primary-cont-ink:#e5e2ff;
+  --inv:#7fb0ff; --inv-bg:#1a2a48; --inv-ink:#cfe1ff;
+  --demo:#ffbf5c; --demo-bg:#3a2a12; --demo-ink:#ffe3b0;
+  --ok:#5fd6a0; --bad:#ff8a97; --warn:#e6c05a;
+  --shadow:0 2px 6px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+h1,h2,h3{margin:0}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:30;background:var(--surf);border-bottom:1px solid var(--line);
+  padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:.2px}
+.brand .logo{font-size:22px}
+.grow{flex:1 1 auto}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:5px 11px;border-radius:999px;background:var(--surf2);color:var(--ink2)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.pill.off .dot{background:var(--bad)}
+.pill.wait .dot{background:var(--warn)}
+.btn{border:1px solid var(--line);background:var(--surf);color:var(--ink);border-radius:999px;
+  padding:8px 15px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+.btn:hover{background:var(--surf2)}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn.pri{background:var(--primary);color:var(--primary-ink);border-color:transparent}
+.btn.pri:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.icon{padding:8px;width:38px;height:38px;justify-content:center;border-radius:50%}
+
+/* ---------- tabs ---------- */
+nav.tabs{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px 0}
+nav.tabs button{border:1px solid var(--line);background:var(--surf);color:var(--ink2);
+  padding:9px 16px;border-radius:999px;font-weight:700;flex:0 0 auto}
+nav.tabs button.active{background:var(--primary-cont);color:var(--primary-cont-ink);border-color:transparent}
+
+main{padding:14px;max-width:1200px;margin:0 auto}
+.panel{display:none}
+.panel.active{display:block}
+
+/* ---------- stats ---------- */
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.stat{background:var(--surf);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:10px 15px;box-shadow:var(--shadow);min-width:104px;flex:1 1 104px}
+.stat b{display:block;font-size:24px;line-height:1.1}
+.stat span{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);font-weight:700}
+.stat.inv b{color:var(--inv)} .stat.demo b{color:var(--demo)}
+
+/* ---------- search + toolbar ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.search{flex:1 1 260px;display:flex;align-items:center;gap:8px;background:var(--surf);
+  border:1px solid var(--line);border-radius:999px;padding:9px 15px;box-shadow:var(--shadow)}
+.search input{border:0;outline:0;background:transparent;flex:1;font-size:15px}
+.search .ic{color:var(--ink2)}
+.searchinfo{font-size:13px;color:var(--ink2);font-weight:600;min-height:18px}
+.legend{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--ink2);font-weight:600}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-1px}
+
+/* ---------- shelf wall ---------- */
+.shelfwall{display:flex;flex-direction:column;gap:16px}
+.shelf{background:var(--surf);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.shelf .shead{display:flex;align-items:center;gap:10px;padding:11px 15px;background:var(--surf2);border-bottom:1px solid var(--line)}
+.shelf .shead h3{font-size:16px;font-weight:800}
+.shelf .shead .cnt{font-size:12px;color:var(--ink2);font-weight:700}
+.bays{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;padding:15px}
+.bay{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:9px 9px 11px;
+  min-height:120px;background:linear-gradient(180deg,transparent,var(--surf2))}
+.bay .baynum{font-size:11px;font-weight:800;color:var(--ink2);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase}
+.bay .books{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-end;min-height:74px}
+.bay .empty{font-size:12px;color:var(--ink2);opacity:.6;font-style:italic;align-self:center;margin:auto}
+
+/* book spine */
+.spine{position:relative;width:38px;height:96px;border-radius:5px 5px 4px 4px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:6px 3px;
+  box-shadow:2px 2px 5px rgba(0,0,0,.16), inset -3px 0 0 rgba(0,0,0,.08), inset 3px 0 0 rgba(255,255,255,.22);
+  transition:transform .12s, box-shadow .12s, filter .12s}
+.spine .ttl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:800;
+  white-space:nowrap;overflow:hidden;max-height:82px;text-overflow:ellipsis;letter-spacing:.2px}
+.spine:hover{transform:translateY(-4px) rotate(-1deg)}
+.spine.inv{background:linear-gradient(180deg,var(--inv),color-mix(in srgb,var(--inv) 78%, #000));color:#fff}
+.spine.demo{background:linear-gradient(180deg,var(--demo),color-mix(in srgb,var(--demo) 78%, #000));color:#fff}
+.spine::after{content:"";position:absolute;top:8px;bottom:8px;left:6px;width:2px;border-radius:2px;background:rgba(255,255,255,.35)}
+/* search states */
+body.searching .spine.miss{opacity:.18;filter:grayscale(.6)}
+.spine.hit{outline:3px solid var(--primary);outline-offset:2px;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--primary) 60%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
+.bay.hasbay-hit{border-color:var(--primary);border-style:solid}
+
+/* unassigned zone */
+.unassigned{border-style:dashed;border-color:var(--warn)}
+.unassigned .shead{background:var(--demo-bg);color:var(--demo-ink)}
+
+/* ---------- master table ---------- */
+.tablewrap{overflow-x:auto;background:var(--surf);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;min-width:680px}
+th,td{padding:11px 13px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--ink2);background:var(--surf2);position:sticky;top:0}
+tbody tr:hover{background:var(--surf2)}
+td.notes{max-width:280px;white-space:normal;color:var(--ink2)}
+.tag{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
+.tag.inv{background:var(--inv-bg);color:var(--inv-ink)} .tag.demo{background:var(--demo-bg);color:var(--demo-ink)}
+.loc{font-weight:700} .loc.none{color:var(--ink2);font-weight:500;font-style:italic}
+.rowacts{display:flex;gap:6px;white-space:nowrap}
+
+/* ---------- modals ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,12,40,.5);backdrop-filter:blur(3px);
+  display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--surf);border-radius:var(--radius);box-shadow:var(--shadow);
+  width:100%;max-width:520px;max-height:90vh;overflow:auto;padding:20px}
+.modal h2{font-size:19px;margin-bottom:14px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:800;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.field input[type=text],.field textarea,.field select{width:100%;padding:10px 12px;border:1px solid var(--line);
+  border-radius:var(--radius-sm);background:var(--bg);outline:none}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--primary)}
+.field textarea{min-height:70px;resize:vertical}
+.row2{display:flex;gap:12px}.row2>*{flex:1}
+.seg{display:flex;gap:8px}
+.seg label{flex:1;border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;text-align:center;font-weight:700;cursor:pointer}
+.seg input{display:none}
+.seg label.inv.on{background:var(--inv-bg);color:var(--inv-ink);border-color:var(--inv)}
+.seg label.demo.on{background:var(--demo-bg);color:var(--demo-ink);border-color:var(--demo)}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.modal .actions .grow{flex:1}
+.hint{font-size:12px;color:var(--ink2);margin-top:6px}
+
+/* admin-only visibility */
+.adminonly{display:none}
+body.admin .adminonly{display:inline-flex}
+body.admin tr .adminonly{display:flex}
+.emptybox{text-align:center;padding:40px 20px;color:var(--ink2)}
+.emptybox .big{font-size:40px;margin-bottom:8px}
+
+footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);font-size:12px;text-align:center}
+
+/* help */
+.help{background:var(--surf);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;line-height:1.6}
+.help h2{font-size:18px;margin:16px 0 6px}.help h2:first-child{margin-top:0}
+.help code{background:var(--surf2);padding:2px 6px;border-radius:6px;font-size:13px}
+.help ul{margin:6px 0;padding-left:22px}
+
+@media(max-width:560px){
+  .bays{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:9px;padding:11px}
+  main{padding:10px}
+  .brand{font-size:17px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">📚</span><span>Shelf Tracker</span></div>
+  <span class="grow"></span>
+  <span class="pill wait" id="syncPill"><span class="dot"></span><span id="syncTxt">Connecting…</span></span>
+  <button class="btn sm ghost" id="adminBtn">🔓 Admin</button>
+  <button class="btn icon ghost" id="themeBtn" title="Light / dark">☾</button>
+</header>
+
+<nav class="tabs">
+  <button data-tab="shelves" class="active">📚 Shelves</button>
+  <button data-tab="master">📋 Master List</button>
+  <button data-tab="help">❓ Help</button>
+</nav>
+
+<main>
+  <!-- ===================== SHELVES ===================== -->
+  <section id="tab-shelves" class="panel active">
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <div class="search"><span class="ic">🔍</span>
+        <input id="shelfSearch" placeholder="Search model, serial, or notes — jump to its shelf…" autocomplete="off">
+        <button class="btn sm ghost" id="clearSearch" style="display:none">✕</button>
+      </div>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--inv)"></span>Inventory</span>
+        <span><span class="sw" style="background:var(--demo)"></span>Demo</span>
+      </div>
+    </div>
+    <div class="searchinfo" id="searchInfo"></div>
+    <div style="margin:6px 0 14px" class="adminonly">
+      <button class="btn sm pri" id="addShelfBtn">＋ Add shelf</button>
+    </div>
+    <div class="shelfwall" id="shelfWall"></div>
+  </section>
+
+  <!-- ===================== MASTER LIST ===================== -->
+  <section id="tab-master" class="panel">
+    <div class="toolbar">
+      <div class="search"><span class="ic">🔍</span>
+        <input id="masterSearch" placeholder="Filter units…" autocomplete="off">
+      </div>
+      <button class="btn pri adminonly" id="addUnitBtn">＋ Add unit</button>
+      <button class="btn sm ghost" id="exportBtn">⬇ Export CSV</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Model</th><th>Serial</th><th>Type</th><th>Location</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="masterBody"></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:10px">The Master List is the source of truth — the shelf view on the front page is built from it. Adding & editing requires <b>Admin</b>.</p>
+  </section>
+
+  <!-- ===================== HELP ===================== -->
+  <section id="tab-help" class="panel">
+    <div class="help">
+      <h2>📚 What this is</h2>
+      <p>A shared tracker for your physical units. Each unit has a <b>model</b>, <b>serial</b>, <b>notes</b>, a <b>location</b> (shelf + bay), and a <b>type</b> — <span class="tag inv">Inventory</span> or <span class="tag demo">Demo</span>. Everyone with the link sees the same live data.</p>
+
+      <h2>🔍 Finding a unit</h2>
+      <p>On the <b>Shelves</b> page, type a model, serial, or note in the search box. Matching units light up and pulse, everything else dims, and the view jumps to the first match — showing exactly which shelf and bay it's in. You can also hit <b>📍 Locate</b> on any row in the Master List.</p>
+
+      <h2>📋 Master List</h2>
+      <p>The full table of every unit — the source of truth. The shelf wall is just a visual of it. Anyone can browse and filter it; only <b>Admin</b> can add, edit, or delete.</p>
+
+      <h2>🔒 Admin</h2>
+      <p>Click <b>Admin</b> (top right) to unlock editing: add/edit/delete units, and add/rename/remove shelves and bay counts. The first time, you set the admin password. It stays unlocked in this browser tab until you lock it or close the tab.</p>
+      <p class="hint">Heads-up: the admin password is checked in the browser, so it keeps normal viewers out but isn't a bank-grade lock. Fine while there's no sensitive data — we can add real sign-in later.</p>
+
+      <h2>💾 Saving</h2>
+      <p>Everything saves automatically to the cloud and to this browser. No save button.</p>
+
+      <p class="hint" id="verLine" style="margin-top:20px"></p>
+    </div>
+  </section>
+</main>
+
+<footer id="footer"></footer>
+
+<!-- ===================== UNIT EDITOR MODAL ===================== -->
+<div class="overlay" id="unitOverlay">
+  <div class="modal">
+    <h2 id="unitTitle">Add unit</h2>
+    <div class="field"><label>Model</label><input type="text" id="u_model" placeholder="e.g. MPC3628"></div>
+    <div class="field"><label>Serial number</label><input type="text" id="u_serial" placeholder="e.g. SN-3628B"></div>
+    <div class="field"><label>Type</label>
+      <div class="seg" id="u_typeSeg">
+        <label class="inv on" data-t="inventory"><input type="radio" name="utype" value="inventory" checked>Inventory</label>
+        <label class="demo" data-t="demo"><input type="radio" name="utype" value="demo">Demo</label>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Shelf</label><select id="u_shelf"></select></div>
+      <div class="field"><label>Bay</label><select id="u_bay"></select></div>
+    </div>
+    <div class="field"><label>Additional notes</label><textarea id="u_notes" placeholder="Condition, accessories, who it's assigned to, etc."></textarea></div>
+    <div class="actions">
+      <button class="btn danger" id="u_delete" style="display:none">Delete</button>
+      <span class="grow"></span>
+      <button class="btn ghost" id="u_cancel">Cancel</button>
+      <button class="btn pri" id="u_save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SHELF EDITOR MODAL ===================== -->
+<div class="overlay" id="shelfOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2 id="shelfTitle">Add shelf</h2>
+    <div class="field"><label>Shelf label</label><input type="text" id="s_label" placeholder="e.g. Shelf A / Back Wall / Cabinet 1"></div>
+    <div class="field"><label>Number of bays</label><input type="text" id="s_bays" inputmode="numeric" placeholder="e.g. 8"></div>
+    <p class="hint">Bays are numbered 1 … N. Reducing the count will unassign units that were in the removed bays.</p>
+    <div class="actions">
+      <button class="btn danger" id="s_delete" style="display:none">Delete shelf</button>
+      <span class="grow"></span>
+      <button class="btn ghost" id="s_cancel">Cancel</button>
+      <button class="btn pri" id="s_save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADMIN MODAL ===================== -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal" style="max-width:400px">
+    <h2 id="adminTitle">Admin</h2>
+    <p class="hint" id="adminMsg" style="margin-top:0"></p>
+    <div class="field"><label id="adminLbl">Password</label><input type="password" id="a_pw" autocomplete="off"></div>
+    <div class="field" id="a_pw2wrap" style="display:none"><label>Confirm password</label><input type="password" id="a_pw2" autocomplete="off"></div>
+    <div class="actions">
+      <span class="grow"></span>
+      <button class="btn ghost" id="a_cancel">Cancel</button>
+      <button class="btn pri" id="a_ok">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DETAILS MODAL (view) ===================== -->
+<div class="overlay" id="viewOverlay">
+  <div class="modal" style="max-width:420px">
+    <h2 id="v_model">Unit</h2>
+    <div id="v_body"></div>
+    <div class="actions">
+      <button class="btn pri adminonly" id="v_edit">Edit</button>
+      <span class="grow"></span>
+      <button class="btn ghost" id="v_close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Shelf Tracker — state, persistence, rendering
+   ============================================================ */
+const APP_VERSION = "1.0";
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---- state ---- */
+let UNITS   = {};      // id -> {id,model,serial,notes,type,shelf,bay}
+let SHELVES = [];      // [{id,label,bays}]
+let ADMIN_HASH = '';   // stored (algo-tagged) hash of admin password; '' = not set yet
+let isAdmin = false;
+let activeTab = 'shelves';
+
+/* ---- persistence (local cache) ---- */
+function dataObject(){ return {app:'shelftracker',version:1,savedAt:Date.now(),shelves:SHELVES,units:UNITS,adminHash:ADMIN_HASH}; }
+function saveLocal(){ try{ localStorage.setItem('shelftracker_data', JSON.stringify(dataObject())); }catch(e){} }
+function loadLocal(){
+  try{
+    const d=JSON.parse(localStorage.getItem('shelftracker_data')||'null');
+    if(d){ UNITS=d.units||{}; SHELVES=d.shelves||[]; ADMIN_HASH=d.adminHash||''; normalize(); }
+  }catch(e){}
+}
+function normalize(){
+  SHELVES = (SHELVES||[]).map(s=>({id:s.id||uid(),label:s.label||'Shelf',bays:Math.max(1,parseInt(s.bays)||1)}));
+  Object.values(UNITS).forEach(u=>{
+    u.id=u.id||uid(); u.model=u.model||''; u.serial=u.serial||''; u.notes=u.notes||'';
+    u.type = u.type==='demo'?'demo':'inventory';
+    u.shelf=u.shelf||''; u.bay=parseInt(u.bay)||0;
+    // drop location if shelf no longer exists or bay out of range
+    const sh=SHELVES.find(s=>s.id===u.shelf);
+    if(!sh || u.bay<1 || u.bay>sh.bays){ u.shelf=''; u.bay=0; }
+  });
+}
+
+/* ============================================================
+   Cloud sync (single-blob, echo-guarded) — path shelftracker/main
+   ============================================================ */
+let lastPushCanon = null;
+let pendingRemote = null;
+function canonState(){ return JSON.stringify({s:SHELVES,u:UNITS,h:ADMIN_HASH}); }
+function modalOpen(){ return $$('.overlay.open').length>0; }
+function persist(){ saveLocal(); fbPush(); }
+function fbPush(){
+  if(!window.__fbWrite) return;
+  lastPushCanon = canonState();
+  window.__fbWrite(dataObject());
+}
+window.__setSync = st => {
+  const p=$('#syncPill'), t=$('#syncTxt');
+  p.classList.remove('off','wait');
+  if(st==='on'){ t.textContent='Live · shared'; }
+  else if(st==='err'){ p.classList.add('off'); t.textContent='Offline'; }
+  else { p.classList.add('wait'); t.textContent='Connecting…'; }
+};
+window.__applyRemote = val => {
+  if(!val || typeof val!=='object'){ // empty cloud: seed it from whatever we have locally
+    if(Object.keys(UNITS).length || SHELVES.length) fbPush();
+    return;
+  }
+  const incoming = JSON.stringify({s:val.shelves||[],u:val.units||{},h:val.adminHash||''});
+  if(incoming===lastPushCanon || incoming===canonState()) return; // our own echo / no change
+  if(modalOpen()){ pendingRemote = val; return; }               // don't yank data mid-edit
+  applyRemoteState(val);
+};
+function applyRemoteState(val){
+  UNITS = val.units||{}; SHELVES = val.shelves||[]; ADMIN_HASH = val.adminHash||'';
+  normalize(); saveLocal(); renderAll();
+}
+function flushPending(){ if(pendingRemote && !modalOpen()){ const v=pendingRemote; pendingRemote=null; applyRemoteState(v); } }
+
+/* ============================================================
+   Password hashing (algo-tagged so it works in any context)
+   ============================================================ */
+async function hashPw(pw){
+  if(window.crypto && crypto.subtle){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+    return 's:'+[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  let h=5381; for(let i=0;i<pw.length;i++){ h=((h<<5)+h)+pw.charCodeAt(i); h|=0; }
+  return 'd:'+(h>>>0).toString(16);
+}
+async function verifyPw(pw, stored){
+  if(!stored) return false;
+  const h = await hashPw(pw);
+  // if algorithms differ (context change), best-effort: only compare same algo
+  if(h.slice(0,2)!==stored.slice(0,2)) return h===stored;
+  return h===stored;
+}
+
+/* ============================================================
+   Rendering
+   ============================================================ */
+function unitsArr(){ return Object.values(UNITS); }
+function shelfById(id){ return SHELVES.find(s=>s.id===id); }
+function unitsIn(shelfId, bay){ return unitsArr().filter(u=>u.shelf===shelfId && u.bay===bay)
+  .sort((a,b)=> (a.model||'').localeCompare(b.model||'') || (a.serial||'').localeCompare(b.serial||'')); }
+
+function renderStats(){
+  const arr=unitsArr();
+  const inv=arr.filter(u=>u.type==='inventory').length;
+  const demo=arr.filter(u=>u.type==='demo').length;
+  const un=arr.filter(u=>!u.shelf).length;
+  $('#stats').innerHTML =
+    stat(arr.length,'Total units')+
+    stat(inv,'Inventory','inv')+
+    stat(demo,'Demo','demo')+
+    stat(SHELVES.length,'Shelves')+
+    stat(un,'Unplaced');
+}
+function stat(n,label,cls=''){ return `<div class="stat ${cls}"><b>${n}</b><span>${label}</span></div>`; }
+
+function spineHTML(u){
+  const q=(u.model||'?');
+  return `<div class="spine ${u.type==='demo'?'demo':'inv'}" data-id="${u.id}"
+    data-search="${esc((u.model+' '+u.serial+' '+u.notes).toLowerCase())}"
+    title="${esc(u.model)} · ${esc(u.serial)}">
+    <span class="ttl">${esc(q)}</span></div>`;
+}
+
+function renderShelfWall(){
+  const wall=$('#shelfWall');
+  let html='';
+  if(!SHELVES.length){
+    html += `<div class="emptybox"><div class="big">🗄️</div>
+      <p><b>No shelves yet.</b><br>${isAdmin?'Click “Add shelf” above to build your layout.':'An admin needs to set up the shelves.'}</p></div>`;
+  }
+  SHELVES.forEach(sh=>{
+    const total=unitsArr().filter(u=>u.shelf===sh.id).length;
+    let bays='';
+    for(let b=1;b<=sh.bays;b++){
+      const list=unitsIn(sh.id,b);
+      const books = list.length ? list.map(spineHTML).join('')
+        : `<div class="empty">empty</div>`;
+      bays += `<div class="bay" data-shelf="${sh.id}" data-bay="${b}">
+        <div class="baynum">Bay ${b}</div><div class="books">${books}</div></div>`;
+    }
+    html += `<div class="shelf" data-shelf="${sh.id}">
+      <div class="shead"><h3>${esc(sh.label)}</h3><span class="cnt">${total} unit${total!==1?'s':''} · ${sh.bays} bay${sh.bays!==1?'s':''}</span>
+        <span class="grow" style="flex:1"></span>
+        <button class="btn sm ghost adminonly editShelf" data-shelf="${sh.id}">✎ Edit</button></div>
+      <div class="bays">${bays}</div></div>`;
+  });
+  // unassigned
+  const un=unitsArr().filter(u=>!u.shelf);
+  if(un.length){
+    const books=un.sort((a,b)=>(a.model||'').localeCompare(b.model||'')).map(spineHTML).join('');
+    html += `<div class="shelf unassigned"><div class="shead"><h3>📦 Unassigned</h3>
+      <span class="cnt">${un.length} unit${un.length!==1?'s':''} with no shelf/bay</span></div>
+      <div class="bays"><div class="bay" style="grid-column:1/-1"><div class="baynum">Not placed</div><div class="books">${books}</div></div></div></div>`;
+  }
+  wall.innerHTML=html;
+  applyShelfSearch();
+}
+
+function renderMaster(){
+  const q=($('#masterSearch').value||'').toLowerCase().trim();
+  let arr=unitsArr();
+  if(q) arr=arr.filter(u=>(u.model+' '+u.serial+' '+u.notes).toLowerCase().includes(q));
+  arr.sort((a,b)=>(a.model||'').localeCompare(b.model||'')||(a.serial||'').localeCompare(b.serial||''));
+  const body=$('#masterBody');
+  if(!arr.length){ body.innerHTML=`<tr><td colspan="6" class="emptybox">No units${q?' match your filter':' yet'}.</td></tr>`; return; }
+  body.innerHTML = arr.map(u=>{
+    const sh=shelfById(u.shelf);
+    const loc = sh ? `${esc(sh.label)} · Bay ${u.bay}` : '';
+    return `<tr>
+      <td><b>${esc(u.model||'—')}</b></td>
+      <td>${esc(u.serial||'—')}</td>
+      <td><span class="tag ${u.type==='demo'?'demo':'inv'}">${u.type}</span></td>
+      <td class="loc ${sh?'':'none'}">${sh?loc:'Unplaced'}</td>
+      <td class="notes">${esc(u.notes||'')}</td>
+      <td><div class="rowacts">
+        <button class="btn sm ghost locate" data-id="${u.id}">📍 Locate</button>
+        <button class="btn sm ghost adminonly editUnit" data-id="${u.id}">✎</button>
+      </div></td></tr>`;
+  }).join('');
+}
+
+function renderAll(){ renderStats(); renderShelfWall(); renderMaster(); syncAdminUI(); }
+
+/* ---------- search on shelf wall ---------- */
+function applyShelfSearch(){
+  const q=($('#shelfSearch').value||'').toLowerCase().trim();
+  const spines=$$('.spine');
+  $('#clearSearch').style.display = q?'inline-flex':'none';
+  $$('.bay').forEach(b=>b.classList.remove('hasbay-hit'));
+  if(!q){ document.body.classList.remove('searching'); spines.forEach(s=>s.classList.remove('hit','miss')); $('#searchInfo').textContent=''; return; }
+  document.body.classList.add('searching');
+  let hits=0, first=null;
+  spines.forEach(s=>{
+    const m=s.dataset.search.includes(q);
+    s.classList.toggle('hit',m); s.classList.toggle('miss',!m);
+    if(m){ hits++; if(!first) first=s; s.closest('.bay')?.classList.add('hasbay-hit'); }
+  });
+  const info=$('#searchInfo');
+  if(hits && first){
+    const bayEl=first.closest('.bay'); const shelfEl=first.closest('.shelf');
+    const where = bayEl?.dataset.bay ? `${shelfEl?.querySelector('h3')?.textContent||''} · Bay ${bayEl.dataset.bay}` : 'Unassigned';
+    info.innerHTML = `<b>${hits}</b> match${hits!==1?'es':''}. First: <b>${esc(where)}</b>`;
+    first.scrollIntoView({behavior:'smooth',block:'center'});
+  } else { info.textContent = 'No matches.'; }
+}
+
+/* ============================================================
+   Admin UI
+   ============================================================ */
+function syncAdminUI(){
+  document.body.classList.toggle('admin', isAdmin);
+  $('#adminBtn').textContent = isAdmin ? '🔒 Lock' : '🔓 Admin';
+}
+
+/* ============================================================
+   Modals — unit editor
+   ============================================================ */
+let editingUnit=null;
+function fillShelfSelect(sel, shelfId){
+  sel.innerHTML = `<option value="">— Unassigned —</option>` +
+    SHELVES.map(s=>`<option value="${s.id}" ${s.id===shelfId?'selected':''}>${esc(s.label)}</option>`).join('');
+}
+function fillBaySelect(sel, shelfId, bay){
+  const sh=shelfById(shelfId);
+  if(!sh){ sel.innerHTML=`<option value="0">—</option>`; sel.disabled=true; return; }
+  sel.disabled=false;
+  let o=`<option value="0">— none —</option>`;
+  for(let b=1;b<=sh.bays;b++) o+=`<option value="${b}" ${b===bay?'selected':''}>Bay ${b}</option>`;
+  sel.innerHTML=o;
+}
+function openUnit(id){
+  if(!isAdmin) return;
+  editingUnit = id ? UNITS[id] : null;
+  const u = editingUnit || {model:'',serial:'',notes:'',type:'inventory',shelf:'',bay:0};
+  $('#unitTitle').textContent = editingUnit?'Edit unit':'Add unit';
+  $('#u_model').value=u.model; $('#u_serial').value=u.serial; $('#u_notes').value=u.notes;
+  $$('#u_typeSeg input').forEach(r=>{ r.checked = r.value===u.type; });
+  updateTypeSeg();
+  fillShelfSelect($('#u_shelf'), u.shelf);
+  fillBaySelect($('#u_bay'), u.shelf, u.bay);
+  $('#u_delete').style.display = editingUnit?'inline-flex':'none';
+  openOverlay('#unitOverlay'); $('#u_model').focus();
+}
+function updateTypeSeg(){
+  const v=$('#u_typeSeg input:checked').value;
+  $$('#u_typeSeg label').forEach(l=>l.classList.toggle('on', l.dataset.t===v));
+}
+function saveUnit(){
+  const model=$('#u_model').value.trim(), serial=$('#u_serial').value.trim();
+  if(!model && !serial){ alert('Enter at least a model or serial.'); return; }
+  const type=$('#u_typeSeg input:checked').value;
+  const shelf=$('#u_shelf').value; let bay=parseInt($('#u_bay').value)||0;
+  if(!shelf) bay=0;
+  if(editingUnit){ Object.assign(editingUnit,{model,serial,notes:$('#u_notes').value.trim(),type,shelf,bay}); }
+  else { const id=uid(); UNITS[id]={id,model,serial,notes:$('#u_notes').value.trim(),type,shelf,bay}; }
+  closeOverlay('#unitOverlay'); persist(); renderAll();
+}
+function deleteUnit(){
+  if(!editingUnit) return;
+  if(!confirm(`Delete “${editingUnit.model||editingUnit.serial}”? This can't be undone.`)) return;
+  delete UNITS[editingUnit.id]; closeOverlay('#unitOverlay'); persist(); renderAll();
+}
+
+/* ---- shelf editor ---- */
+let editingShelf=null;
+function openShelf(id){
+  if(!isAdmin) return;
+  editingShelf = id ? shelfById(id) : null;
+  $('#shelfTitle').textContent = editingShelf?'Edit shelf':'Add shelf';
+  $('#s_label').value = editingShelf?editingShelf.label:'';
+  $('#s_bays').value  = editingShelf?editingShelf.bays:'6';
+  $('#s_delete').style.display = editingShelf?'inline-flex':'none';
+  openOverlay('#shelfOverlay'); $('#s_label').focus();
+}
+function saveShelf(){
+  const label=$('#s_label').value.trim(); const bays=Math.max(1,Math.min(200,parseInt($('#s_bays').value)||0));
+  if(!label){ alert('Give the shelf a label.'); return; }
+  if(!bays){ alert('Enter a bay count (1 or more).'); return; }
+  if(editingShelf){ editingShelf.label=label; editingShelf.bays=bays; normalize(); }
+  else { SHELVES.push({id:uid(),label,bays}); }
+  closeOverlay('#shelfOverlay'); persist(); renderAll();
+}
+function deleteShelf(){
+  if(!editingShelf) return;
+  const n=unitsArr().filter(u=>u.shelf===editingShelf.id).length;
+  if(!confirm(`Delete “${editingShelf.label}”?${n?` ${n} unit(s) here will become Unassigned.`:''}`)) return;
+  SHELVES=SHELVES.filter(s=>s.id!==editingShelf.id); normalize();
+  closeOverlay('#shelfOverlay'); persist(); renderAll();
+}
+
+/* ---- details view ---- */
+function openView(id){
+  const u=UNITS[id]; if(!u) return;
+  const sh=shelfById(u.shelf);
+  $('#v_model').textContent = u.model||'(no model)';
+  $('#v_body').innerHTML = `
+    <div class="field"><label>Serial</label><div>${esc(u.serial||'—')}</div></div>
+    <div class="field"><label>Type</label><div><span class="tag ${u.type==='demo'?'demo':'inv'}">${u.type}</span></div></div>
+    <div class="field"><label>Location</label><div class="loc ${sh?'':'none'}">${sh?esc(sh.label)+' · Bay '+u.bay:'Unplaced'}</div></div>
+    <div class="field"><label>Notes</label><div>${esc(u.notes||'—')}</div></div>`;
+  $('#v_edit').dataset.id=id;
+  openOverlay('#viewOverlay');
+}
+
+/* ---- overlay helpers ---- */
+function openOverlay(sel){ $(sel).classList.add('open'); }
+function closeOverlay(sel){ $(sel).classList.remove('open'); setTimeout(flushPending,50); }
+
+/* ============================================================
+   Admin unlock / set-password flow
+   ============================================================ */
+function openAdmin(){
+  if(isAdmin){ isAdmin=false; sessionStorage.removeItem('shelftracker_admin'); syncAdminUI(); renderAll(); return; }
+  const firstTime = !ADMIN_HASH;
+  $('#adminTitle').textContent = firstTime?'Set admin password':'Admin login';
+  $('#adminMsg').textContent = firstTime
+    ? 'No admin password is set yet. Choose one now — you’ll need it to edit shelves and units.'
+    : 'Enter the admin password to unlock editing.';
+  $('#adminLbl').textContent = firstTime?'New password':'Password';
+  $('#a_pw2wrap').style.display = firstTime?'block':'none';
+  $('#a_ok').textContent = firstTime?'Set & unlock':'Unlock';
+  $('#a_pw').value=''; $('#a_pw2').value='';
+  openOverlay('#adminOverlay'); $('#a_pw').focus();
+}
+async function adminOk(){
+  const firstTime = !ADMIN_HASH;
+  const pw=$('#a_pw').value;
+  if(firstTime){
+    if(pw.length<4){ alert('Use at least 4 characters.'); return; }
+    if(pw!==$('#a_pw2').value){ alert('Passwords don’t match.'); return; }
+    ADMIN_HASH = await hashPw(pw); isAdmin=true;
+    sessionStorage.setItem('shelftracker_admin','1');
+    closeOverlay('#adminOverlay'); persist(); syncAdminUI(); renderAll();
+  } else {
+    if(await verifyPw(pw, ADMIN_HASH)){ isAdmin=true; sessionStorage.setItem('shelftracker_admin','1');
+      closeOverlay('#adminOverlay'); syncAdminUI(); renderAll(); }
+    else alert('Wrong password.');
+  }
+}
+
+/* ============================================================
+   CSV export
+   ============================================================ */
+function exportCSV(){
+  const rows=[['Model','Serial','Type','Shelf','Bay','Notes']];
+  unitsArr().sort((a,b)=>(a.model||'').localeCompare(b.model||'')).forEach(u=>{
+    const sh=shelfById(u.shelf);
+    rows.push([u.model,u.serial,u.type,sh?sh.label:'',sh?u.bay:'',u.notes]);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='shelf-tracker.csv'; a.click();
+}
+
+/* ============================================================
+   Tabs & events
+   ============================================================ */
+function switchTab(t){
+  activeTab=t;
+  $$('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  $$('.panel').forEach(p=>p.classList.remove('active'));
+  $('#tab-'+t).classList.add('active');
+}
+function wire(){
+  $$('nav.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  $('#themeBtn').onclick=()=>{
+    const cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':
+      (document.documentElement.getAttribute('data-theme')==='light'?'light':
+      (matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'));
+    const nx=cur==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',nx); localStorage.setItem('shelftracker_theme',nx);
+    $('#themeBtn').textContent = nx==='dark'?'☀':'☾';
+  };
+  $('#themeBtn').textContent = (document.documentElement.getAttribute('data-theme')==='dark'||
+    (!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches))?'☀':'☾';
+
+  $('#adminBtn').onclick=openAdmin;
+  $('#a_ok').onclick=adminOk; $('#a_cancel').onclick=()=>closeOverlay('#adminOverlay');
+  $('#a_pw2').addEventListener('keydown',e=>{if(e.key==='Enter')adminOk();});
+  $('#a_pw').addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#a_pw2wrap').style.display==='none')adminOk();});
+
+  // search
+  $('#shelfSearch').addEventListener('input',applyShelfSearch);
+  $('#clearSearch').onclick=()=>{ $('#shelfSearch').value=''; applyShelfSearch(); $('#shelfSearch').focus(); };
+  $('#masterSearch').addEventListener('input',renderMaster);
+
+  // add buttons
+  $('#addUnitBtn').onclick=()=>openUnit(null);
+  $('#addShelfBtn').onclick=()=>openShelf(null);
+  $('#exportBtn').onclick=exportCSV;
+
+  // unit modal
+  $('#u_cancel').onclick=()=>closeOverlay('#unitOverlay');
+  $('#u_save').onclick=saveUnit;
+  $('#u_delete').onclick=deleteUnit;
+  $('#u_shelf').addEventListener('change',()=>fillBaySelect($('#u_bay'),$('#u_shelf').value,0));
+  $$('#u_typeSeg input').forEach(r=>r.addEventListener('change',updateTypeSeg));
+
+  // shelf modal
+  $('#s_cancel').onclick=()=>closeOverlay('#shelfOverlay');
+  $('#s_save').onclick=saveShelf;
+  $('#s_delete').onclick=deleteShelf;
+
+  // view modal
+  $('#v_close').onclick=()=>closeOverlay('#viewOverlay');
+  $('#v_edit').onclick=()=>{ closeOverlay('#viewOverlay'); openUnit($('#v_edit').dataset.id); };
+
+  // delegated clicks
+  document.addEventListener('click',e=>{
+    const spine=e.target.closest('.spine'); if(spine){ openView(spine.dataset.id); return; }
+    const es=e.target.closest('.editShelf'); if(es){ openShelf(es.dataset.shelf); return; }
+    const eu=e.target.closest('.editUnit'); if(eu){ openUnit(eu.dataset.id); return; }
+    const lo=e.target.closest('.locate'); if(lo){ locate(lo.dataset.id); return; }
+    // click backdrop to close
+    if(e.target.classList.contains('overlay')) e.target.classList.remove('open'), setTimeout(flushPending,50);
+  });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') $$('.overlay.open').forEach(o=>o.classList.remove('open')), setTimeout(flushPending,50); });
+}
+function locate(id){
+  const u=UNITS[id]; if(!u) return;
+  switchTab('shelves');
+  $('#shelfSearch').value = u.serial || u.model;
+  applyShelfSearch();
+}
+
+/* ============================================================
+   Boot
+   ============================================================ */
+function boot(){
+  loadLocal();
+  if(sessionStorage.getItem('shelftracker_admin')==='1') isAdmin=true;
+  $('#verLine').textContent = `Shelf Tracker v${APP_VERSION}`;
+  $('#footer').innerHTML = `Shelf Tracker v${APP_VERSION} · live-synced · inventory &amp; demo unit locations`;
+  wire(); syncAdminUI(); renderAll();
+  window.addEventListener('focus',flushPending);
+}
+boot();
+</script>
+
+<!-- ===================== Firebase live sync ===================== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyD9AJbPC9M4gpTyvfIoRcqILq0ZOom1OBs",
+  authDomain: "bon-echo-bd946.firebaseapp.com",
+  databaseURL: "https://bon-echo-bd946-default-rtdb.firebaseio.com",
+  projectId: "bon-echo-bd946",
+  storageBucket: "bon-echo-bd946.firebasestorage.app",
+  messagingSenderId: "196437731482",
+  appId: "1:196437731482:web:3ac836962ce7d89e735723"
+};
+const SYNC_PATH = "shelftracker/main";   // separate from unittracker — never touches the loaner board
+try{
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  const node= ref(db, SYNC_PATH);
+  window.__fbWrite = obj => { set(node, obj).catch(e=>console.warn('fb write',e)); };
+  onValue(node, snap => {
+    if(window.__setSync) window.__setSync('on');
+    if(window.__applyRemote) window.__applyRemote(snap.val());
+  }, err => { console.warn('fb sync error', err); if(window.__setSync) window.__setSync('err'); });
+}catch(e){ console.warn('Firebase init failed — local only', e); if(window.__setSync) window.__setSync('err'); }
+</script>
+</body>
+</html>
