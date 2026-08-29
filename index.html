@@ -74,7 +74,7 @@ main{padding:14px;max-width:1200px;margin:0 auto}
   padding:10px 15px;box-shadow:var(--shadow);min-width:104px;flex:1 1 104px}
 .stat b{display:block;font-size:24px;line-height:1.1}
 .stat span{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);font-weight:700}
-.stat.inv b{color:var(--inv)} .stat.demo b{color:var(--demo)}
+.stat.inv b{color:var(--inv)} .stat.demo b{color:var(--demo)} .stat.loan b{color:var(--bad)}
 
 /* ---------- search + toolbar ---------- */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -93,24 +93,29 @@ main{padding:14px;max-width:1200px;margin:0 auto}
 .shelf .shead{display:flex;align-items:center;gap:10px;padding:11px 15px;background:var(--surf2);border-bottom:1px solid var(--line)}
 .shelf .shead h3{font-size:16px;font-weight:800}
 .shelf .shead .cnt{font-size:12px;color:var(--ink2);font-weight:700}
-.bays{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;padding:15px}
+.bays{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:12px;padding:15px}
 .bay{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:9px 9px 11px;
   min-height:120px;background:linear-gradient(180deg,transparent,var(--surf2))}
 .bay .baynum{font-size:11px;font-weight:800;color:var(--ink2);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase}
-.bay .books{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-end;min-height:74px}
-.bay .empty{font-size:12px;color:var(--ink2);opacity:.6;font-style:italic;align-self:center;margin:auto}
+.bay .books{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-height:74px}
+.bay .empty{font-size:12px;color:var(--ink2);opacity:.6;font-style:italic;text-align:center;margin:auto}
 
-/* book spine */
-.spine{position:relative;width:38px;height:96px;border-radius:5px 5px 4px 4px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;padding:6px 3px;
-  box-shadow:2px 2px 5px rgba(0,0,0,.16), inset -3px 0 0 rgba(0,0,0,.08), inset 3px 0 0 rgba(255,255,255,.22);
+/* book spine — books lie flat (sideways), stacked; model reads left-to-right */
+.spine{position:relative;width:100%;min-height:30px;border-radius:4px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:center;gap:2px;padding:5px 10px 5px 13px;
+  box-shadow:0 1px 3px rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.20), inset 0 -2px 0 rgba(0,0,0,.10);
   transition:transform .12s, box-shadow .12s, filter .12s}
-.spine .ttl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:800;
-  white-space:nowrap;overflow:hidden;max-height:82px;text-overflow:ellipsis;letter-spacing:.2px}
-.spine:hover{transform:translateY(-4px) rotate(-1deg)}
-.spine.inv{background:linear-gradient(180deg,var(--inv),color-mix(in srgb,var(--inv) 78%, #000));color:#fff}
-.spine.demo{background:linear-gradient(180deg,var(--demo),color-mix(in srgb,var(--demo) 78%, #000));color:#fff}
-.spine::after{content:"";position:absolute;top:8px;bottom:8px;left:6px;width:2px;border-radius:2px;background:rgba(255,255,255,.35)}
+.spine .oline{display:flex;align-items:center;gap:6px;min-width:0}
+.spine .ttl{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;letter-spacing:.2px;line-height:1.2;flex:1;min-width:0}
+.spine .obadge{flex:0 0 auto;font-size:9px;font-weight:900;letter-spacing:.6px;
+  background:rgba(0,0,0,.32);color:#fff;padding:2px 7px;border-radius:999px}
+.spine .osub{font-size:10px;font-weight:600;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spine:hover{transform:translateX(3px);box-shadow:0 2px 7px rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.22), inset 0 -2px 0 rgba(0,0,0,.12)}
+.spine.inv{background:linear-gradient(90deg,color-mix(in srgb,var(--inv) 82%, #000),var(--inv));color:#fff}
+.spine.demo{background:linear-gradient(90deg,color-mix(in srgb,var(--demo) 82%, #000),var(--demo));color:#fff}
+.spine.out{filter:saturate(.72) brightness(.97)}
+.spine::after{content:"";position:absolute;left:0;top:5px;bottom:5px;width:3px;border-radius:0 3px 3px 0;background:rgba(255,255,255,.42)}
 /* search states */
 body.searching .spine.miss{opacity:.18;filter:grayscale(.6)}
 .spine.hit{outline:3px solid var(--primary);outline-offset:2px;animation:pulse 1s ease-in-out infinite}
@@ -120,6 +125,10 @@ body.searching .spine.miss{opacity:.18;filter:grayscale(.6)}
 /* unassigned zone */
 .unassigned{border-style:dashed;border-color:var(--warn)}
 .unassigned .shead{background:var(--demo-bg);color:var(--demo-ink)}
+/* on-loan zone */
+.onloanzone{border-color:var(--demo)}
+.onloanzone .shead{background:var(--demo-bg);color:var(--demo-ink)}
+.onloanzone .bay{border-style:solid;border-color:color-mix(in srgb,var(--demo) 40%, var(--line))}
 
 /* ---------- master table ---------- */
 .tablewrap{overflow-x:auto;background:var(--surf);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
@@ -130,7 +139,10 @@ tbody tr:hover{background:var(--surf2)}
 td.notes{max-width:280px;white-space:normal;color:var(--ink2)}
 .tag{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px}
 .tag.inv{background:var(--inv-bg);color:var(--inv-ink)} .tag.demo{background:var(--demo-bg);color:var(--demo-ink)}
+.tag.out{background:var(--bad);color:#fff}
 .loc{font-weight:700} .loc.none{color:var(--ink2);font-weight:500;font-style:italic}
+.loc.outloc{color:var(--bad)}
+.loc .sub{display:block;font-size:11px;font-weight:600;color:var(--ink2);font-style:normal}
 .rowacts{display:flex;gap:6px;white-space:nowrap}
 
 /* ---------- modals ---------- */
@@ -152,6 +164,15 @@ td.notes{max-width:280px;white-space:normal;color:var(--ink2)}
 .seg input{display:none}
 .seg label.inv.on{background:var(--inv-bg);color:var(--inv-ink);border-color:var(--inv)}
 .seg label.demo.on{background:var(--demo-bg);color:var(--demo-ink);border-color:var(--demo)}
+.choice{width:100%;text-align:left;justify-content:flex-start;align-items:flex-start;flex-direction:column;
+  gap:3px;padding:13px 15px;border-radius:var(--radius-sm);margin-bottom:10px}
+.choice b{font-size:14px;font-weight:800;display:block}
+.choice small{font-size:12px;font-weight:500;opacity:.85;white-space:normal;line-height:1.35}
+.choice.pri{background:var(--demo-bg);color:var(--demo-ink);border:1px solid var(--demo)}
+.choice.pri:hover{filter:brightness(1.03)}
+.choice.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+.choice.danger:hover{background:color-mix(in srgb,var(--bad) 12%, transparent)}
+.subfields{border-left:2px solid var(--demo);padding:2px 0 2px 12px;margin:0 0 10px 4px}
 .modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
 .modal .actions .grow{flex:1}
 .hint{font-size:12px;color:var(--ink2);margin-top:6px}
@@ -246,8 +267,17 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
       <h2>📋 Master List</h2>
       <p>The full table of every unit — the source of truth. The shelf wall is just a visual of it. Anyone can browse and filter it; only <b>Admin</b> can add, edit, or delete.</p>
 
+      <h2>📤 Loans &amp; removing units</h2>
+      <p>On the <b>Master List</b> (Admin), each unit has actions:</p>
+      <ul>
+        <li><b>📤 Loan out</b> (demo units only) — mark a demo unit as out on loan. It leaves its bay and moves to the <b>📤 On loan</b> area on the shelf page with an <b>OUT</b> marker, and remembers its last shelf/bay. You can note who it's out to and since when.</li>
+        <li><b>📥 Return</b> — bring a loaned unit back; it drops into its remembered shelf/bay (or Unassigned if that spot is gone).</li>
+        <li><b>🗑 Remove</b> — take a unit off the list. Choose <b>Sold / disposed</b> to delete it completely, or (for demo units) <b>Out on loan</b> to keep it in the system.</li>
+      </ul>
+      <p class="hint">Inventory units don't go out on loan — they can only be removed if sold/disposed.</p>
+
       <h2>🔒 Admin</h2>
-      <p>Click <b>Admin</b> (top right) to unlock editing: add/edit/delete units, and add/rename/remove shelves and bay counts. The first time, you set the admin password. It stays unlocked in this browser tab until you lock it or close the tab.</p>
+      <p>Click <b>Admin</b> (top right) to unlock editing: add/edit/delete units, loan/return/remove them, and add/rename/remove shelves and bay counts. The first time, you set the admin password. It stays unlocked in this browser tab until you lock it or close the tab.</p>
       <p class="hint">Heads-up: the admin password is checked in the browser, so it keeps normal viewers out but isn't a bank-grade lock. Fine while there's no sensitive data — we can add real sign-in later.</p>
 
       <h2>💾 Saving</h2>
@@ -276,6 +306,7 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
       <div class="field"><label>Shelf</label><select id="u_shelf"></select></div>
       <div class="field"><label>Bay</label><select id="u_bay"></select></div>
     </div>
+    <p class="hint" id="u_outNote" style="display:none;color:var(--bad)">📤 This unit is out on loan — its shelf/bay is set when you use <b>Return</b>. Location edits here are ignored until it's returned.</p>
     <div class="field"><label>Additional notes</label><textarea id="u_notes" placeholder="Condition, accessories, who it's assigned to, etc."></textarea></div>
     <div class="actions">
       <button class="btn danger" id="u_delete" style="display:none">Delete</button>
@@ -317,12 +348,46 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
   </div>
 </div>
 
+<!-- ===================== REMOVE / LOAN MODAL ===================== -->
+<div class="overlay" id="removeOverlay">
+  <div class="modal" style="max-width:460px">
+    <h2 id="rm_title">Remove unit</h2>
+    <p class="hint" id="rm_sub" style="margin-top:0"></p>
+
+    <!-- Loan-out option (demo units that are currently in) -->
+    <div id="rm_loanWrap">
+      <div class="subfields">
+        <div class="field" style="margin-bottom:9px"><label>On loan to (optional)</label>
+          <input type="text" id="rm_to" placeholder="Customer / person / site"></div>
+        <div class="field" style="margin-bottom:9px"><label>Since (optional)</label>
+          <input type="text" id="rm_since" placeholder="e.g. Aug 28, 2026"></div>
+      </div>
+      <button class="btn choice pri" id="rm_loan">
+        <b>📤 Out on loan — to be returned</b>
+        <small>Keeps the unit in the system. It moves to the “On loan” area (its bay is freed) with an OUT marker, and remembers its last shelf so you can return it later.</small>
+      </button>
+    </div>
+
+    <button class="btn choice danger" id="rm_sell">
+      <b>🗑 Sold / disposed — remove completely</b>
+      <small>Deletes this unit from the list entirely. This can’t be undone.</small>
+    </button>
+
+    <div class="actions">
+      <span class="grow"></span>
+      <button class="btn ghost" id="rm_cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== DETAILS MODAL (view) ===================== -->
 <div class="overlay" id="viewOverlay">
   <div class="modal" style="max-width:420px">
     <h2 id="v_model">Unit</h2>
     <div id="v_body"></div>
     <div class="actions">
+      <button class="btn adminonly" id="v_return" style="display:none">📥 Return</button>
+      <button class="btn adminonly" id="v_remove" style="display:none">🗑 Remove…</button>
       <button class="btn pri adminonly" id="v_edit">Edit</button>
       <span class="grow"></span>
       <button class="btn ghost" id="v_close">Close</button>
@@ -334,14 +399,14 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
 /* ============================================================
    Shelf Tracker — state, persistence, rendering
    ============================================================ */
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ---- state ---- */
-let UNITS   = {};      // id -> {id,model,serial,notes,type,shelf,bay}
+let UNITS   = {};      // id -> {id,model,serial,notes,type,shelf,bay,status,outTo,outSince,lastShelf,lastBay}
 let SHELVES = [];      // [{id,label,bays}]
 let ADMIN_HASH = '';   // stored (algo-tagged) hash of admin password; '' = not set yet
 let isAdmin = false;
@@ -362,9 +427,18 @@ function normalize(){
     u.id=u.id||uid(); u.model=u.model||''; u.serial=u.serial||''; u.notes=u.notes||'';
     u.type = u.type==='demo'?'demo':'inventory';
     u.shelf=u.shelf||''; u.bay=parseInt(u.bay)||0;
+    // loan status — only demo units can be out on loan
+    u.status = (u.status==='out' && u.type==='demo') ? 'out' : 'in';
+    u.outTo = u.outTo||''; u.outSince = u.outSince||'';
+    u.lastShelf = u.lastShelf||''; u.lastBay = parseInt(u.lastBay)||0;
+    // an out unit holds no live shelf/bay (its spot is freed)
+    if(u.status==='out'){ u.shelf=''; u.bay=0; }
     // drop location if shelf no longer exists or bay out of range
     const sh=SHELVES.find(s=>s.id===u.shelf);
     if(!sh || u.bay<1 || u.bay>sh.bays){ u.shelf=''; u.bay=0; }
+    // forget a stale last-location if that shelf/bay is gone
+    const lsh=SHELVES.find(s=>s.id===u.lastShelf);
+    if(!lsh || u.lastBay<1 || u.lastBay>lsh.bays){ u.lastShelf=''; u.lastBay=0; }
   });
 }
 
@@ -435,22 +509,41 @@ function renderStats(){
   const arr=unitsArr();
   const inv=arr.filter(u=>u.type==='inventory').length;
   const demo=arr.filter(u=>u.type==='demo').length;
-  const un=arr.filter(u=>!u.shelf).length;
+  const out=arr.filter(u=>u.status==='out').length;
+  const un=arr.filter(u=>u.status!=='out' && !u.shelf).length;
   $('#stats').innerHTML =
     stat(arr.length,'Total units')+
     stat(inv,'Inventory','inv')+
     stat(demo,'Demo','demo')+
+    stat(out,'On loan','loan')+
     stat(SHELVES.length,'Shelves')+
     stat(un,'Unplaced');
 }
 function stat(n,label,cls=''){ return `<div class="stat ${cls}"><b>${n}</b><span>${label}</span></div>`; }
 
+function lastLocText(u){
+  const sh=shelfById(u.lastShelf);
+  return sh ? `${sh.label} · Bay ${u.lastBay}` : '';
+}
 function spineHTML(u){
   const q=(u.model||'?');
-  return `<div class="spine ${u.type==='demo'?'demo':'inv'}" data-id="${u.id}"
-    data-search="${esc((u.model+' '+u.serial+' '+u.notes).toLowerCase())}"
-    title="${esc(u.model)} · ${esc(u.serial)}">
-    <span class="ttl">${esc(q)}</span></div>`;
+  const isOut = u.status==='out';
+  const cls = `spine ${u.type==='demo'?'demo':'inv'}${isOut?' out':''}`;
+  const search = esc((u.model+' '+u.serial+' '+u.notes+' '+(u.outTo||'')).toLowerCase());
+  const badge = isOut ? `<span class="obadge">OUT</span>` : '';
+  let sub = '';
+  if(isOut){
+    const back = lastLocText(u);
+    const bits = [];
+    if(back) bits.push('↩ '+back);
+    if(u.outTo) bits.push('to '+u.outTo);
+    sub = bits.length ? `<span class="osub">${esc(bits.join(' · '))}</span>` : '';
+  }
+  const tip = isOut
+    ? `${esc(u.model)} · ${esc(u.serial)} — OUT ON LOAN${u.outTo?(' to '+esc(u.outTo)):''}`
+    : `${esc(u.model)} · ${esc(u.serial)}`;
+  return `<div class="${cls}" data-id="${u.id}" data-search="${search}" title="${tip}">
+    <span class="oline"><span class="ttl">${esc(q)}</span>${badge}</span>${sub}</div>`;
 }
 
 function renderShelfWall(){
@@ -476,8 +569,16 @@ function renderShelfWall(){
         <button class="btn sm ghost adminonly editShelf" data-shelf="${sh.id}">✎ Edit</button></div>
       <div class="bays">${bays}</div></div>`;
   });
-  // unassigned
-  const un=unitsArr().filter(u=>!u.shelf);
+  // on loan (out) — demo units currently lent out
+  const out=unitsArr().filter(u=>u.status==='out');
+  if(out.length){
+    const books=out.sort((a,b)=>(a.model||'').localeCompare(b.model||'')).map(spineHTML).join('');
+    html += `<div class="shelf onloanzone"><div class="shead"><h3>📤 On loan</h3>
+      <span class="cnt">${out.length} unit${out.length!==1?'s':''} currently out</span></div>
+      <div class="bays"><div class="bay" style="grid-column:1/-1"><div class="baynum">Out on loan</div><div class="books">${books}</div></div></div></div>`;
+  }
+  // unassigned (in the building but no shelf/bay yet) — excludes on-loan units
+  const un=unitsArr().filter(u=>u.status!=='out' && !u.shelf);
   if(un.length){
     const books=un.sort((a,b)=>(a.model||'').localeCompare(b.model||'')).map(spineHTML).join('');
     html += `<div class="shelf unassigned"><div class="shead"><h3>📦 Unassigned</h3>
@@ -497,16 +598,40 @@ function renderMaster(){
   if(!arr.length){ body.innerHTML=`<tr><td colspan="6" class="emptybox">No units${q?' match your filter':' yet'}.</td></tr>`; return; }
   body.innerHTML = arr.map(u=>{
     const sh=shelfById(u.shelf);
-    const loc = sh ? `${esc(sh.label)} · Bay ${u.bay}` : '';
+    // location cell
+    let locCell;
+    if(u.status==='out'){
+      const back=lastLocText(u);
+      const bits=[]; if(back) bits.push('was '+back); if(u.outTo) bits.push('to '+u.outTo); if(u.outSince) bits.push('since '+u.outSince);
+      locCell = `<td class="loc outloc">📤 On loan${bits.length?`<span class="sub">${esc(bits.join(' · '))}</span>`:''}</td>`;
+    } else if(sh){
+      locCell = `<td class="loc">${esc(sh.label)} · Bay ${u.bay}</td>`;
+    } else {
+      locCell = `<td class="loc none">Unplaced</td>`;
+    }
+    const typeCell = `<span class="tag ${u.type==='demo'?'demo':'inv'}">${u.type}</span>`
+      + (u.status==='out'?` <span class="tag out">out</span>`:'');
+    // admin row actions
+    let acts='';
+    if(u.status==='out'){
+      acts = `<button class="btn sm ghost adminonly returnUnit" data-id="${u.id}" title="Return to shelf">📥 Return</button>
+        <button class="btn sm ghost adminonly editUnit" data-id="${u.id}" title="Edit">✎</button>
+        <button class="btn sm ghost adminonly removeUnit" data-id="${u.id}" title="Remove (sold/disposed)">🗑</button>`;
+    } else {
+      const loanBtn = u.type==='demo'
+        ? `<button class="btn sm ghost adminonly removeUnit" data-id="${u.id}" title="Loan out / remove">📤</button>`
+        : `<button class="btn sm ghost adminonly removeUnit" data-id="${u.id}" title="Remove (sold/disposed)">🗑</button>`;
+      acts = `<button class="btn sm ghost adminonly editUnit" data-id="${u.id}" title="Edit">✎</button>${loanBtn}`;
+    }
     return `<tr>
       <td><b>${esc(u.model||'—')}</b></td>
       <td>${esc(u.serial||'—')}</td>
-      <td><span class="tag ${u.type==='demo'?'demo':'inv'}">${u.type}</span></td>
-      <td class="loc ${sh?'':'none'}">${sh?loc:'Unplaced'}</td>
+      <td>${typeCell}</td>
+      ${locCell}
       <td class="notes">${esc(u.notes||'')}</td>
       <td><div class="rowacts">
         <button class="btn sm ghost locate" data-id="${u.id}">📍 Locate</button>
-        <button class="btn sm ghost adminonly editUnit" data-id="${u.id}">✎</button>
+        ${acts}
       </div></td></tr>`;
   }).join('');
 }
@@ -530,7 +655,9 @@ function applyShelfSearch(){
   const info=$('#searchInfo');
   if(hits && first){
     const bayEl=first.closest('.bay'); const shelfEl=first.closest('.shelf');
-    const where = bayEl?.dataset.bay ? `${shelfEl?.querySelector('h3')?.textContent||''} · Bay ${bayEl.dataset.bay}` : 'Unassigned';
+    const where = bayEl?.dataset.bay
+      ? `${shelfEl?.querySelector('h3')?.textContent||''} · Bay ${bayEl.dataset.bay}`
+      : (shelfEl?.querySelector('h3')?.textContent||'Unassigned');
     info.innerHTML = `<b>${hits}</b> match${hits!==1?'es':''}. First: <b>${esc(where)}</b>`;
     first.scrollIntoView({behavior:'smooth',block:'center'});
   } else { info.textContent = 'No matches.'; }
@@ -570,6 +697,9 @@ function openUnit(id){
   updateTypeSeg();
   fillShelfSelect($('#u_shelf'), u.shelf);
   fillBaySelect($('#u_bay'), u.shelf, u.bay);
+  const isOut = !!(editingUnit && editingUnit.status==='out');
+  $('#u_outNote').style.display = isOut ? 'block' : 'none';
+  $('#u_shelf').disabled = isOut; $('#u_bay').disabled = isOut;
   $('#u_delete').style.display = editingUnit?'inline-flex':'none';
   openOverlay('#unitOverlay'); $('#u_model').focus();
 }
@@ -591,6 +721,49 @@ function deleteUnit(){
   if(!editingUnit) return;
   if(!confirm(`Delete “${editingUnit.model||editingUnit.serial}”? This can't be undone.`)) return;
   delete UNITS[editingUnit.id]; closeOverlay('#unitOverlay'); persist(); renderAll();
+}
+
+/* ---- loan-out / remove / return flow ---- */
+let removingUnit=null;
+function openRemove(id){
+  if(!isAdmin) return;
+  const u=UNITS[id]; if(!u) return;
+  removingUnit=u;
+  const canLoan = (u.type==='demo' && u.status==='in');
+  $('#rm_title').textContent = canLoan ? 'Loan out or remove' : 'Remove unit';
+  $('#rm_sub').innerHTML = `<b>${esc(u.model||u.serial||'This unit')}</b>${u.serial?(' · '+esc(u.serial)):''}`
+    + (canLoan?'' : (u.type==='inventory' ? ' — inventory units don’t go out on loan.' : ''));
+  $('#rm_loanWrap').style.display = canLoan ? 'block' : 'none';
+  $('#rm_to').value=''; $('#rm_since').value='';
+  openOverlay('#removeOverlay');
+}
+function doLoanOut(){
+  const u=removingUnit; if(!u) return;
+  if(u.type!=='demo'){ closeOverlay('#removeOverlay'); return; }
+  if(u.shelf){ u.lastShelf=u.shelf; u.lastBay=u.bay; }   // remember its spot for the return trip
+  u.status='out';
+  u.outTo=$('#rm_to').value.trim();
+  u.outSince=$('#rm_since').value.trim();
+  u.shelf=''; u.bay=0;
+  closeOverlay('#removeOverlay'); removingUnit=null; persist(); renderAll();
+}
+function sellUnit(){
+  const u=removingUnit; if(!u) return;
+  if(!confirm(`Remove “${u.model||u.serial}” from the list completely? This can't be undone.`)) return;
+  delete UNITS[u.id];
+  closeOverlay('#removeOverlay'); removingUnit=null; persist(); renderAll();
+}
+function returnUnit(id){
+  if(!isAdmin) return;
+  const u=UNITS[id]; if(!u || u.status!=='out') return;
+  const sh=shelfById(u.lastShelf);
+  const placeable = sh && u.lastBay>=1 && u.lastBay<=sh.bays;
+  const dest = placeable ? `${sh.label} · Bay ${u.lastBay}` : 'Unassigned';
+  if(!confirm(`Return “${u.model||u.serial}” to ${dest}?`)) return;
+  u.status='in';
+  if(placeable){ u.shelf=u.lastShelf; u.bay=u.lastBay; } else { u.shelf=''; u.bay=0; }
+  u.outTo=''; u.outSince=''; u.lastShelf=''; u.lastBay=0;
+  persist(); renderAll();
 }
 
 /* ---- shelf editor ---- */
@@ -625,12 +798,24 @@ function openView(id){
   const u=UNITS[id]; if(!u) return;
   const sh=shelfById(u.shelf);
   $('#v_model').textContent = u.model||'(no model)';
+  let locHTML;
+  if(u.status==='out'){
+    const back=lastLocText(u);
+    locHTML = `<div class="field"><label>Status</label><div><span class="tag out">On loan</span></div></div>
+      ${u.outTo?`<div class="field"><label>On loan to</label><div>${esc(u.outTo)}</div></div>`:''}
+      ${u.outSince?`<div class="field"><label>Since</label><div>${esc(u.outSince)}</div></div>`:''}
+      <div class="field"><label>Last known location</label><div class="loc ${back?'':'none'}">${back?esc(back):'Unknown (was unplaced)'}</div></div>`;
+  } else {
+    locHTML = `<div class="field"><label>Location</label><div class="loc ${sh?'':'none'}">${sh?esc(sh.label)+' · Bay '+u.bay:'Unplaced'}</div></div>`;
+  }
   $('#v_body').innerHTML = `
     <div class="field"><label>Serial</label><div>${esc(u.serial||'—')}</div></div>
     <div class="field"><label>Type</label><div><span class="tag ${u.type==='demo'?'demo':'inv'}">${u.type}</span></div></div>
-    <div class="field"><label>Location</label><div class="loc ${sh?'':'none'}">${sh?esc(sh.label)+' · Bay '+u.bay:'Unplaced'}</div></div>
+    ${locHTML}
     <div class="field"><label>Notes</label><div>${esc(u.notes||'—')}</div></div>`;
-  $('#v_edit').dataset.id=id;
+  $('#v_edit').dataset.id=id; $('#v_return').dataset.id=id; $('#v_remove').dataset.id=id;
+  $('#v_return').style.display = (isAdmin && u.status==='out') ? 'inline-flex' : 'none';
+  $('#v_remove').style.display = isAdmin ? 'inline-flex' : 'none';
   openOverlay('#viewOverlay');
 }
 
@@ -674,10 +859,15 @@ async function adminOk(){
    CSV export
    ============================================================ */
 function exportCSV(){
-  const rows=[['Model','Serial','Type','Shelf','Bay','Notes']];
+  const rows=[['Model','Serial','Type','Status','Shelf','Bay','On loan to','Since','Notes']];
   unitsArr().sort((a,b)=>(a.model||'').localeCompare(b.model||'')).forEach(u=>{
-    const sh=shelfById(u.shelf);
-    rows.push([u.model,u.serial,u.type,sh?sh.label:'',sh?u.bay:'',u.notes]);
+    if(u.status==='out'){
+      const lsh=shelfById(u.lastShelf);
+      rows.push([u.model,u.serial,u.type,'On loan',lsh?lsh.label:'',lsh?u.lastBay:'',u.outTo||'',u.outSince||'',u.notes]);
+    } else {
+      const sh=shelfById(u.shelf);
+      rows.push([u.model,u.serial,u.type,'In',sh?sh.label:'',sh?u.bay:'','','',u.notes]);
+    }
   });
   const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const a=document.createElement('a');
@@ -736,12 +926,21 @@ function wire(){
   // view modal
   $('#v_close').onclick=()=>closeOverlay('#viewOverlay');
   $('#v_edit').onclick=()=>{ closeOverlay('#viewOverlay'); openUnit($('#v_edit').dataset.id); };
+  $('#v_return').onclick=()=>{ const id=$('#v_return').dataset.id; closeOverlay('#viewOverlay'); returnUnit(id); };
+  $('#v_remove').onclick=()=>{ const id=$('#v_remove').dataset.id; closeOverlay('#viewOverlay'); openRemove(id); };
+
+  // remove / loan modal
+  $('#rm_cancel').onclick=()=>closeOverlay('#removeOverlay');
+  $('#rm_loan').onclick=doLoanOut;
+  $('#rm_sell').onclick=sellUnit;
 
   // delegated clicks
   document.addEventListener('click',e=>{
     const spine=e.target.closest('.spine'); if(spine){ openView(spine.dataset.id); return; }
     const es=e.target.closest('.editShelf'); if(es){ openShelf(es.dataset.shelf); return; }
     const eu=e.target.closest('.editUnit'); if(eu){ openUnit(eu.dataset.id); return; }
+    const ru=e.target.closest('.removeUnit'); if(ru){ openRemove(ru.dataset.id); return; }
+    const rt=e.target.closest('.returnUnit'); if(rt){ returnUnit(rt.dataset.id); return; }
     const lo=e.target.closest('.locate'); if(lo){ locate(lo.dataset.id); return; }
     // click backdrop to close
     if(e.target.classList.contains('overlay')) e.target.classList.remove('open'), setTimeout(flushPending,50);
