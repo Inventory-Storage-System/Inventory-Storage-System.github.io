@@ -121,6 +121,9 @@ body.searching .spine.miss{opacity:.18;filter:grayscale(.6)}
 .spine.hit{outline:3px solid var(--primary);outline-offset:2px;animation:pulse 1s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--primary) 60%,transparent)}50%{box-shadow:0 0 0 7px transparent}}
 .bay.hasbay-hit{border-color:var(--primary);border-style:solid}
+/* the one match currently focused via arrow keys — steady gold ring, no pulse */
+.spine.hit.current{outline:4px solid var(--warn);outline-offset:2px;animation:none;box-shadow:0 0 0 5px color-mix(in srgb,var(--warn) 40%,transparent)}
+.bay.hasbay-hit.hasbay-current{border-color:var(--warn)}
 
 /* unassigned zone */
 .unassigned{border-style:dashed;border-color:var(--warn)}
@@ -399,7 +402,7 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
 /* ============================================================
    Shelf Tracker — state, persistence, rendering
    ============================================================ */
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
@@ -639,28 +642,41 @@ function renderMaster(){
 function renderAll(){ renderStats(); renderShelfWall(); renderMaster(); syncAdminUI(); }
 
 /* ---------- search on shelf wall ---------- */
+let searchHits=[], searchIdx=0;   // matched spines + which one the arrow keys are focused on
+function hitLocationText(s){
+  const bayEl=s.closest('.bay'); const shelfEl=s.closest('.shelf');
+  return bayEl?.dataset.bay
+    ? `${shelfEl?.querySelector('h3')?.textContent||''} · Bay ${bayEl.dataset.bay}`
+    : (shelfEl?.querySelector('h3')?.textContent||'Unassigned');
+}
+function focusHit(i){
+  if(!searchHits.length) return;
+  searchIdx=(i+searchHits.length)%searchHits.length;   // wrap around both ends
+  searchHits.forEach(s=>{ s.classList.remove('current'); s.closest('.bay')?.classList.remove('hasbay-current'); });
+  const cur=searchHits[searchIdx];
+  cur.classList.add('current'); cur.closest('.bay')?.classList.add('hasbay-current');
+  cur.scrollIntoView({behavior:'smooth',block:'center'});
+  const n=searchHits.length;
+  const nav = n>1 ? ` <span style="opacity:.7;font-weight:500">(↑/↓ to cycle)</span>` : '';
+  $('#searchInfo').innerHTML = `<b>${n}</b> match${n!==1?'es':''} · showing <b>${searchIdx+1}</b> of ${n}: <b>${esc(hitLocationText(cur))}</b>${nav}`;
+}
+// move to the next/previous match; returns true if it handled the keypress
+function navSearch(delta){ if(!searchHits.length) return false; focusHit(searchIdx+delta); return true; }
 function applyShelfSearch(){
   const q=($('#shelfSearch').value||'').toLowerCase().trim();
   const spines=$$('.spine');
   $('#clearSearch').style.display = q?'inline-flex':'none';
-  $$('.bay').forEach(b=>b.classList.remove('hasbay-hit'));
-  if(!q){ document.body.classList.remove('searching'); spines.forEach(s=>s.classList.remove('hit','miss')); $('#searchInfo').textContent=''; return; }
+  $$('.bay').forEach(b=>b.classList.remove('hasbay-hit','hasbay-current'));
+  if(!q){ document.body.classList.remove('searching'); spines.forEach(s=>s.classList.remove('hit','miss','current')); $('#searchInfo').textContent=''; searchHits=[]; searchIdx=0; return; }
   document.body.classList.add('searching');
-  let hits=0, first=null;
+  searchHits=[];
   spines.forEach(s=>{
     const m=s.dataset.search.includes(q);
-    s.classList.toggle('hit',m); s.classList.toggle('miss',!m);
-    if(m){ hits++; if(!first) first=s; s.closest('.bay')?.classList.add('hasbay-hit'); }
+    s.classList.toggle('hit',m); s.classList.toggle('miss',!m); s.classList.remove('current');
+    if(m){ searchHits.push(s); s.closest('.bay')?.classList.add('hasbay-hit'); }
   });
-  const info=$('#searchInfo');
-  if(hits && first){
-    const bayEl=first.closest('.bay'); const shelfEl=first.closest('.shelf');
-    const where = bayEl?.dataset.bay
-      ? `${shelfEl?.querySelector('h3')?.textContent||''} · Bay ${bayEl.dataset.bay}`
-      : (shelfEl?.querySelector('h3')?.textContent||'Unassigned');
-    info.innerHTML = `<b>${hits}</b> match${hits!==1?'es':''}. First: <b>${esc(where)}</b>`;
-    first.scrollIntoView({behavior:'smooth',block:'center'});
-  } else { info.textContent = 'No matches.'; }
+  if(searchHits.length){ focusHit(0); }
+  else { $('#searchInfo').textContent = 'No matches.'; searchIdx=0; }
 }
 
 /* ============================================================
@@ -903,6 +919,11 @@ function wire(){
 
   // search
   $('#shelfSearch').addEventListener('input',applyShelfSearch);
+  // arrow keys (and Enter) cycle through matches while typing in the search box
+  $('#shelfSearch').addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowRight'||e.key==='Enter'){ if(navSearch(1)) e.preventDefault(); }
+    else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){ if(navSearch(-1)) e.preventDefault(); }
+  });
   $('#clearSearch').onclick=()=>{ $('#shelfSearch').value=''; applyShelfSearch(); $('#shelfSearch').focus(); };
   $('#masterSearch').addEventListener('input',renderMaster);
 
@@ -946,6 +967,17 @@ function wire(){
     if(e.target.classList.contains('overlay')) e.target.classList.remove('open'), setTimeout(flushPending,50);
   });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') $$('.overlay.open').forEach(o=>o.classList.remove('open')), setTimeout(flushPending,50); });
+  // arrow keys cycle matches even when the search box isn't focused (e.g. after "Locate"),
+  // as long as a search is active, no modal is open, and we're not typing in another field
+  document.addEventListener('keydown',e=>{
+    if(!document.body.classList.contains('searching') || !searchHits.length) return;
+    if($$('.overlay.open').length) return;
+    const t=e.target;
+    if(t===$('#shelfSearch')) return;   // handled by the input's own listener above
+    if(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    if(e.key==='ArrowDown'||e.key==='ArrowRight'){ if(navSearch(1)) e.preventDefault(); }
+    else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){ if(navSearch(-1)) e.preventDefault(); }
+  });
 }
 function locate(id){
   const u=UNITS[id]; if(!u) return;
