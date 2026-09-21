@@ -180,6 +180,17 @@ td.notes{max-width:280px;white-space:normal;color:var(--ink2)}
 .modal .actions .grow{flex:1}
 .hint{font-size:12px;color:var(--ink2);margin-top:6px}
 
+/* ---------- patch notes / what's new ---------- */
+.patchlist{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.pn-entry{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:var(--surf2)}
+.pn-entry.pn-current{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 30%,transparent)}
+.pn-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pn-ver{font-weight:700;color:var(--primary);font-size:13px}
+.pn-ttl{font-weight:600;font-size:14px}
+.pn-date{margin-left:auto;color:var(--ink2);font-size:12px}
+.pn-notes{margin:6px 0 0;padding-left:18px}
+.pn-notes li{font-size:13px;color:var(--ink2);margin:2px 0}
+
 /* admin-only visibility */
 .adminonly{display:none}
 body.admin .adminonly{display:inline-flex}
@@ -286,6 +297,10 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
       <h2>💾 Saving</h2>
       <p>Everything saves automatically to the cloud and to this browser. No save button.</p>
 
+      <h2 style="margin-top:22px">🆕 Patch Notes</h2>
+      <p class="hint" style="margin-top:0">Current version: <b id="pnCurrent"></b> · newest first</p>
+      <div id="patchList" class="patchlist"></div>
+
       <p class="hint" id="verLine" style="margin-top:20px"></p>
     </div>
   </section>
@@ -383,6 +398,18 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
   </div>
 </div>
 
+<!-- ===================== WHAT'S NEW MODAL ===================== -->
+<div class="overlay" id="whatsnewOverlay">
+  <div class="modal" style="max-width:460px">
+    <h2 id="whatsnewHead">What’s new</h2>
+    <div id="whatsnewBody" class="patchlist"></div>
+    <div class="actions">
+      <span class="grow"></span>
+      <button class="btn pri" id="wn_ok">Got it</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== DETAILS MODAL (view) ===================== -->
 <div class="overlay" id="viewOverlay">
   <div class="modal" style="max-width:420px">
@@ -402,11 +429,67 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
 /* ============================================================
    Shelf Tracker — state, persistence, rendering
    ============================================================ */
-const APP_VERSION = "1.2";
+/* APP_VERSION is an integer build number (no service worker here → standalone integer).
+   Bump it on every release and add a matching PATCH_NOTES entry at the top. */
+const APP_VERSION = 4;
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ============================================================
+   Patch notes / What's New  (shared convention across the apps)
+   ============================================================ */
+const APP_NAME = 'shelftracker';                 // namespaces localStorage on the shared github.io origin
+const PATCH_NOTES = [                            // newest first; v = the APP_VERSION at that release
+  { v:4, date:'2026-09-21', title:'Patch notes & What’s New', notes:[
+      'Added a Patch Notes list (here in Help) showing every past update, newest first.',
+      'A one-time “What’s New” popup now appears once after each update.'
+  ]},
+  { v:3, date:'2026-09-17', title:'Arrow-key search', notes:[
+      'Search jumps straight to the first matching shelf.',
+      'Use the arrow keys to cycle through every location that holds a match.'
+  ]},
+  { v:2, date:'2026-08-28', title:'Loans & flat book list', notes:[
+      'Added demo loan-out tracking with an On-loan list and last-known location.',
+      'Simplified units into a flat list; added the return / sold flow.'
+  ]},
+  { v:1, date:'2026-08-25', title:'First release', notes:[
+      'Bookshelf-style tracker for inventory and demo-unit locations.'
+  ]},
+];
+const LSV_KEY = APP_NAME + '_lastSeenVer';
+function pnGet(){ try{ return localStorage.getItem(LSV_KEY); }catch(_){ return null; } }
+function pnSet(v){ try{ localStorage.setItem(LSV_KEY, String(v)); }catch(_){ } }
+/* one entry -> HTML; the SAME renderer feeds both the Help list and the popup */
+function pnEntryHTML(e, isCurrent){
+  const bullets=(e.notes||[]).map(n=>'<li>'+esc(n)+'</li>').join('');
+  return '<div class="pn-entry'+(isCurrent?' pn-current':'')+'">'
+    +   '<div class="pn-head"><span class="pn-ver">v'+esc(String(e.v))+'</span>'
+    +   '<span class="pn-ttl">'+esc(e.title)+'</span>'
+    +   '<span class="pn-date">'+esc(e.date)+'</span></div>'
+    +   '<ul class="pn-notes">'+bullets+'</ul></div>';
+}
+function pnRender(list){ return list.map(e=>pnEntryHTML(e, e.v===APP_VERSION)).join(''); }
+function renderPatchNotes(){
+  const box=$('#patchList'); if(box) box.innerHTML=pnRender(PATCH_NOTES);
+  const cur=$('#pnCurrent'); if(cur) cur.textContent='v'+APP_VERSION;
+}
+/* one-time popup — called exactly once at boot, after the normal render */
+function checkWhatsNew(freshInstall){
+  if(freshInstall){ pnSet(APP_VERSION); return; }        // brand-new install: record silently, no popup
+  let last=null; const raw=pnGet();
+  if(raw!=null){ const n=parseInt(raw,10); if(!isNaN(n)) last=n; }
+  let show;
+  if(last==null) show=PATCH_NOTES.slice(0,1);             // pre-feature user: show only the latest
+  else if(last<APP_VERSION) show=PATCH_NOTES.filter(e=>e.v>last);  // delta since last seen
+  else return;                                            // already up to date
+  if(!show.length){ pnSet(APP_VERSION); return; }
+  pnSet(APP_VERSION);                                     // mark seen the moment it's shown (so it appears once)
+  const body=$('#whatsnewBody'); if(body) body.innerHTML=pnRender(show);
+  const head=$('#whatsnewHead'); if(head) head.textContent = show.length>1 ? 'What’s new' : 'What’s new — v'+APP_VERSION;
+  openOverlay('#whatsnewOverlay');
+}
 
 /* ---- state ---- */
 let UNITS   = {};      // id -> {id,model,serial,notes,type,shelf,bay,status,outTo,outSince,lastShelf,lastBay}
@@ -913,6 +996,7 @@ function wire(){
     (!document.documentElement.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches))?'☀':'☾';
 
   $('#adminBtn').onclick=openAdmin;
+  $('#wn_ok').onclick=()=>closeOverlay('#whatsnewOverlay');
   $('#a_ok').onclick=adminOk; $('#a_cancel').onclick=()=>closeOverlay('#adminOverlay');
   $('#a_pw2').addEventListener('keydown',e=>{if(e.key==='Enter')adminOk();});
   $('#a_pw').addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#a_pw2wrap').style.display==='none')adminOk();});
@@ -990,11 +1074,16 @@ function locate(id){
    Boot
    ============================================================ */
 function boot(){
+  // capture fresh-install BEFORE anything writes our data key
+  let freshInstall=false;
+  try{ freshInstall = (localStorage.getItem('shelftracker_data')==null); }catch(_){ freshInstall=false; }
   loadLocal();
   if(sessionStorage.getItem('shelftracker_admin')==='1') isAdmin=true;
   $('#verLine').textContent = `Shelf Tracker v${APP_VERSION}`;
   $('#footer').innerHTML = `Shelf Tracker v${APP_VERSION} · live-synced · inventory &amp; demo unit locations`;
   wire(); syncAdminUI(); renderAll();
+  renderPatchNotes();
+  checkWhatsNew(freshInstall);   // one-time popup, exactly once, after render
   window.addEventListener('focus',flushPending);
 }
 boot();
