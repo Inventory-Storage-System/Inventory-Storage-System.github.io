@@ -200,6 +200,18 @@ body.admin tr .adminonly{display:flex}
 
 footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);font-size:12px;text-align:center}
 
+/* ---------- scroll to top (Shelves tab) ---------- */
+.totop{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;
+  width:50px;height:50px;border-radius:50%;border:none;
+  background:var(--primary);color:var(--primary-ink);font-size:22px;line-height:1;
+  box-shadow:0 4px 14px rgba(30,25,70,.28);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transform:translateY(14px) scale(.9);pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease}
+.totop.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.totop:hover{filter:brightness(1.06)}
+.totop:active{transform:scale(.94)}
+
 /* help */
 .help{background:var(--surf);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;line-height:1.6}
 .help h2{font-size:18px;margin:16px 0 6px}.help h2:first-child{margin-top:0}
@@ -305,6 +317,8 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
     </div>
   </section>
 </main>
+
+<button class="totop" id="toTop" title="Scroll to top" aria-label="Scroll to top">↑</button>
 
 <footer id="footer"></footer>
 
@@ -431,7 +445,7 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
    ============================================================ */
 /* APP_VERSION is an integer build number (no service worker here → standalone integer).
    Bump it on every release and add a matching PATCH_NOTES entry at the top. */
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
@@ -442,6 +456,9 @@ const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>
    ============================================================ */
 const APP_NAME = 'shelftracker';                 // namespaces localStorage on the shared github.io origin
 const PATCH_NOTES = [                            // newest first; v = the APP_VERSION at that release
+  { v:5, date:'2026-09-24', title:'Scroll-to-top button', notes:[
+      'Added a floating ↑ button on the Shelves tab that jumps back to the top after you scroll down.'
+  ]},
   { v:4, date:'2026-09-21', title:'Patch notes & What’s New', notes:[
       'Added a Patch Notes list (here in Help) showing every past update, newest first.',
       'A one-time “What’s New” popup now appears once after each update.'
@@ -981,6 +998,12 @@ function switchTab(t){
   $$('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
   $$('.panel').forEach(p=>p.classList.remove('active'));
   $('#tab-'+t).classList.add('active');
+  updateToTop();
+}
+/* scroll-to-top FAB — only on the long Shelves tab, once scrolled down a bit */
+function updateToTop(){
+  const b=$('#toTop'); if(!b) return;
+  b.classList.toggle('show', activeTab==='shelves' && window.scrollY>320);
 }
 function wire(){
   $$('nav.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
@@ -997,6 +1020,10 @@ function wire(){
 
   $('#adminBtn').onclick=openAdmin;
   $('#wn_ok').onclick=()=>closeOverlay('#whatsnewOverlay');
+
+  // scroll to top
+  $('#toTop').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+  window.addEventListener('scroll',updateToTop,{passive:true});
   $('#a_ok').onclick=adminOk; $('#a_cancel').onclick=()=>closeOverlay('#adminOverlay');
   $('#a_pw2').addEventListener('keydown',e=>{if(e.key==='Enter')adminOk();});
   $('#a_pw').addEventListener('keydown',e=>{if(e.key==='Enter'&&$('#a_pw2wrap').style.display==='none')adminOk();});
