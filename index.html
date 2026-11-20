@@ -445,7 +445,7 @@ footer{max-width:1200px;margin:8px auto 30px;padding:0 14px;color:var(--ink2);fo
    ============================================================ */
 /* APP_VERSION is an integer build number (no service worker here → standalone integer).
    Bump it on every release and add a matching PATCH_NOTES entry at the top. */
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const uid = ()=> (crypto.randomUUID ? crypto.randomUUID() : 'u'+Date.now()+Math.round(Math.random()*1e6));
@@ -456,6 +456,10 @@ const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>
    ============================================================ */
 const APP_NAME = 'shelftracker';                 // namespaces localStorage on the shared github.io origin
 const PATCH_NOTES = [                            // newest first; v = the APP_VERSION at that release
+  { v:6, date:'2026-11-19', title:'Linked with the Loaner Tracker', notes:[
+      'When you loan out a unit in the Loaner Unit Tracker, it can now open this app and offer to remove the matching unit from the shelf.',
+      'Units are matched by serial number; if a serial is shared by more than one unit, you’re asked which one, and you’re warned if the model doesn’t match.'
+  ]},
   { v:5, date:'2026-09-24', title:'Scroll-to-top button', notes:[
       'Added a floating ↑ button on the Shelves tab that jumps back to the top after you scroll down.'
   ]},
@@ -578,6 +582,7 @@ window.__applyRemote = val => {
 function applyRemoteState(val){
   UNITS = val.units||{}; SHELVES = val.shelves||[]; ADMIN_HASH = val.adminHash||'';
   normalize(); saveLocal(); renderAll();
+  resolveLoanout();   // cloud data just arrived — a pending deep-link loan-out can now be matched
 }
 function flushPending(){ if(pendingRemote && !modalOpen()){ const v=pendingRemote; pendingRemote=null; applyRemoteState(v); } }
 
@@ -882,6 +887,64 @@ function returnUnit(id){
   persist(); renderAll();
 }
 
+/* ---- deep link from the Loaner Unit Tracker ----
+   The loaner app opens  ?loanout=<serial>&model=<model>&to=<customer>  to say
+   "this unit just went out on loan — remove it from the shelf too." We match by
+   serial, warn on a model mismatch, and let the user pick when a serial is shared. */
+let pendingLoanout=null;
+function initLoanoutLink(){
+  let p; try{ p=new URLSearchParams(location.search); }catch(_){ return; }
+  const serial=(p.get('loanout')||'').trim();
+  if(!serial) return;
+  pendingLoanout={ serial, model:(p.get('model')||'').trim(), to:(p.get('to')||'').trim() };
+  // strip the query so a refresh never re-triggers the loan-out
+  try{ history.replaceState(null,'',location.pathname+location.hash); }catch(_){}
+  resolveLoanout();
+}
+function resolveLoanout(){
+  if(!pendingLoanout) return;
+  if(!Object.keys(UNITS).length) return;                 // data not loaded yet — retry after cloud sync
+  const key=pendingLoanout.serial.toLowerCase();
+  const matches=unitsArr().filter(u=>(u.serial||'').trim().toLowerCase()===key);
+  if(!matches.length){ const s=pendingLoanout.serial; pendingLoanout=null; alert(`No unit on the shelf has serial “${s}”.`); return; }
+  if(!isAdmin){ alert('Unlock admin to remove this unit from the shelf.'); openAdmin(); return; }  // keep pending; resumes after adminOk
+  if(matches.length>1){ openLoanoutChooser(matches); return; }
+  openLoanoutFor(matches[0]);
+}
+function openLoanoutFor(u){
+  if(!u){ pendingLoanout=null; return; }
+  const pl=pendingLoanout; pendingLoanout=null;
+  const diff = pl.model && u.model && u.model.trim().toLowerCase()!==pl.model.trim().toLowerCase();
+  if(diff && !confirm(`Heads up — the serials match but the models don’t:\n\n• Loaner: ${pl.model}\n• Shelf: ${u.model}  ·  ${u.serial}\n\nRemove this shelf unit from the shelf anyway?`)) return;
+  if(u.status==='out'){ alert(`“${u.model||u.serial}” is already marked out on loan on the shelf.`); return; }
+  if(u.type!=='demo'){ openView(u.id); alert(`Serial ${u.serial} is an Inventory unit, which doesn’t go out on loan. Opening it so you can review.`); return; }
+  openRemove(u.id);                       // demo + in-house → the normal Loan out / remove prompt
+  $('#rm_to').value = pl.to || '';        // prefill the customer from the loaner
+  setTimeout(()=>{ try{ $('#rm_loan').focus(); }catch(_){} },60);
+}
+function openLoanoutChooser(matches){
+  const pl=pendingLoanout;
+  let ov=document.getElementById('loanoutPickOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.className='overlay'; ov.id='loanoutPickOverlay'; document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="modal" style="max-width:480px">
+    <h2>Which unit?</h2>
+    <p class="hint" style="margin-top:0">More than one shelf unit has serial <b>${esc(pl.serial)}</b>. Pick the one to loan out${pl.to?(' to '+esc(pl.to)):''}.</p>
+    <div id="loanoutPickList" style="display:flex;flex-direction:column;gap:8px;margin:10px 0"></div>
+    <div class="actions"><span class="grow"></span><button class="btn ghost" id="lop_cancel">Cancel</button></div>
+  </div>`;
+  const list=ov.querySelector('#loanoutPickList');
+  list.innerHTML=matches.map(u=>{
+    const sh=shelfById(u.shelf);
+    const loc = u.status==='out' ? '📤 On loan' : (sh? (sh.label+' · Bay '+u.bay) : 'Unplaced');
+    const diff = pl.model && u.model && u.model.trim().toLowerCase()!==pl.model.trim().toLowerCase();
+    const tags=[loc, u.type!=='demo'?'inventory (no loan-out)':'', diff?'⚠ model differs from loaner':''].filter(Boolean).join(' · ');
+    return `<button class="btn choice" data-pick="${u.id}"><b>${esc(u.model||'(no model)')} · ${esc(u.serial||'')}</b><small>${esc(tags)}</small></button>`;
+  }).join('');
+  ov.querySelector('#lop_cancel').onclick=()=>{ closeOverlay('#loanoutPickOverlay'); pendingLoanout=null; };
+  list.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ const u=UNITS[b.dataset.pick]; closeOverlay('#loanoutPickOverlay'); openLoanoutFor(u); });
+  openOverlay('#loanoutPickOverlay');
+}
+
 /* ---- shelf editor ---- */
 let editingShelf=null;
 function openShelf(id){
@@ -969,6 +1032,7 @@ async function adminOk(){
       closeOverlay('#adminOverlay'); syncAdminUI(); renderAll(); }
     else alert('Wrong password.');
   }
+  if(isAdmin) resolveLoanout();   // resume a deep-link loan-out that was waiting on admin
 }
 
 /* ============================================================
@@ -1111,6 +1175,7 @@ function boot(){
   wire(); syncAdminUI(); renderAll();
   renderPatchNotes();
   checkWhatsNew(freshInstall);   // one-time popup, exactly once, after render
+  initLoanoutLink();             // handle ?loanout=<serial> deep link from the Loaner tracker
   window.addEventListener('focus',flushPending);
 }
 boot();
